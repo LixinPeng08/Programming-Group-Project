@@ -1,1 +1,221 @@
+import hashlib
+import json
+import random
+import re
+from collections import Counter
 
+
+def read_json(filename):
+    try:
+        with open(filename, "r") as file:
+            data = json.load(file)
+            return data if isinstance(data, dict) else {}
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+
+try:
+    users = read_json("./users.json")
+except:
+    users = {}
+
+
+# Define the Book class
+class Book:
+    def __init__(self, name, desc, price, id, author, cover=None):
+        self.name = name
+        self.desc = desc
+        self.price = price
+        self.id = id
+        self.author = author
+        self.cover = cover  # Base64 encoded string if present, None otherwise
+
+
+class User:
+    def __init__(self, name, email, uniqID, pwd, cart=None, permission="user"):
+        self.name = name
+        self.email = email
+        self.uniqID = uniqID
+        self.pwd = pwd
+        self.cart = cart if cart else {}
+        self.permission = permission
+
+
+def validate_user(email):
+    global users
+    # users = read_json("./users.json")
+    for user in users.values():
+        if user["email"] == email:
+            return (False, "User Existed")
+    pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+    if re.match(pattern, email):
+        return (True, "Succeed")
+    else:
+        return (False, "Format Wrong")
+
+
+def hash_text(text):
+    return hashlib.md5(text.encode("utf-8")).hexdigest()
+
+
+# File operations
+def read_json(filename):
+    try:
+        with open(filename, "r") as file:
+            data = json.load(file)
+            return data if isinstance(data, dict) else {}
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+
+def write_json(filename, data):
+    with open(filename, "w") as file:
+        json.dump(data, file, indent=4)
+
+
+# Manage Books
+def add_book(name, description, price, author, cover_path=None):
+    books = read_json("./data.json")
+    for book in books.values():
+        if book["name"] == name:
+            return False
+    id = generate_id()
+    book = Book(
+        name=name, desc=description, price=price, cover=cover_path, author=author, id=id
+    )
+    books[id] = book.__dict__
+    write_json("./data.json", books)
+    return True
+
+
+# Generate a unique user ID
+def generate_id():
+    return f"{random.randint(0, 1048575):08x}"
+
+
+# User management (demonstrating use of unique ID)
+def add_user(name: str, email: str, password: str, permission="user"):
+    global users
+    res = validate_user(email)
+    if res[0]:
+        pass
+    else:
+        print(res[1])
+        return (False, "")
+    # users = read_json("./users.json")
+    user_id = generate_id()
+    user = User(
+        name,
+        permission=permission,
+        uniqID=user_id,
+        email=email.lower(),
+        pwd=hash_text(password),
+    )
+    users[user_id] = user.__dict__
+    write_json("./users.json", users)
+    return (True, user_id)
+
+
+def authorization(email, password):
+    global users
+    # users = read_json("./users.json")
+    for user in users.values():
+        if user["email"] == email and user["pwd"] == hash_text(password):
+            return (True, user["uniqID"])
+    return False
+
+
+def look_up_user(user_id: str):
+    global users
+    try:
+        # users = read_json("./users.json")
+        return users[user_id]
+    except:
+        return False
+
+
+def look_up_book(book_id: str):
+    try:
+        books = read_json("./data.json")
+        return books[book_id]
+    except:
+        return False
+
+
+def update_cart(
+    user_id, book_id, quantity=1
+):  # -> tuple[Literal[True], str, int] | Literal[False]:
+    global users
+    try:
+        # users = read_json("./users.json")
+        # Retrieve the user and book
+        user = users[user_id]
+        user["cart"][book_id] = quantity
+        write_json("./users.json", users)
+        # print(f"Added 'book {book_id}' to {user['name']}'s cart.")
+        return (True, book_id, quantity)
+    except:
+        return False
+
+
+def delete_from_cart(user_id, book_id):
+    global users
+    try:
+        # users = read_json("./users.json")
+        user = users[user_id]
+        del user["cart"][book_id]
+        write_json("./users.json", users)
+        return True
+    except:
+        return False
+
+
+def loadCart(user_id):
+    global users
+    # users = read_json("./users.json")
+    try:
+        user = users[user_id]
+        return user["cart"]
+    except:
+        return False
+
+
+def loadBooks():
+    return read_json("./data.json")
+
+
+def loadUsers():
+    return read_json("./users.json")
+
+
+# def CartItems_Statistics(user_id):
+#     users = read_json("./users.json")
+#     try:
+#         user = users[user_id]
+#         id_list = [book["id"] for book in user["cart"]]
+#         return dict(Counter(id_list))
+#     except:
+#         return False
+
+
+add_book(
+    "Python Programming",
+    "A comprehensive guide to Python programming.",
+    19.99,
+    "Python Programming",
+)
+add_book(
+    name="Lord of the Flies",
+    description="The plot concerns a group of British boys who are stranded on an uninhabited island and their disastrous attempts to govern themselves.",
+    price=19.99,
+    author="William Golding",
+)
+add_book(
+    name="Sophie's World",
+    description='It follows Sophie Amundsen, a Norwegian teenager, who is introduced to the history of philosophy as she is asked "Who are you?" in a letter from an unknown philosopher',
+    price=19.99,
+    author="Jostein Gaarder",
+)
+
+# add_user("Jane Doe", permission="admin", email="123@eg.com", password="1234132")
+# update_cart("0000e7af", "000f2725")
